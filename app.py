@@ -31,7 +31,6 @@ C_SUCCESS = ("#10B981", "#34D399")
 C_DANGER = ("#EF4444", "#F87171")         
 C_WARNING = ("#F59E0B", "#FBBF24")        
 
-# Font Styles
 F_HEADING = ("Segoe UI", 24, "bold")
 F_SUBHEADING = ("Segoe UI", 16, "bold")
 F_BODY = ("Segoe UI", 13)
@@ -41,19 +40,14 @@ ctk.set_appearance_mode("dark")
 
 # --- UI Action Functions ---
 def toggle_theme():
-    if theme_switch.get() == 1:
-        ctk.set_appearance_mode("dark")
-    else:
-        ctk.set_appearance_mode("light")
+    if theme_switch.get() == 1: ctk.set_appearance_mode("dark")
+    else: ctk.set_appearance_mode("light")
 
-def open_portfolio(event=None):
-    webbrowser.open("https://georgerossis.pages.dev")
-
-def open_patreon():
-    webbrowser.open("https://www.patreon.com/posts/cup-of-coffee-154185123?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link")
+def open_portfolio(event=None): webbrowser.open("https://georgerossis.pages.dev")
+def open_patreon(): webbrowser.open("https://www.patreon.com/posts/cup-of-coffee-154185123?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link")
 
 def check_updates(silent=False):
-    CURRENT_VERSION = "1.7.0.0"
+    CURRENT_VERSION = "2.0.0.0"
     UPDATE_URL = f"https://raw.githubusercontent.com/Geoross/omicron/main/version.txt?t={int(time.time())}"
     WHATSNEW_URL = f"https://raw.githubusercontent.com/Geoross/omicron/main/whatsnew.txt?t={int(time.time())}"
     
@@ -70,25 +64,21 @@ def check_updates(silent=False):
                 update_dot.place(relx=0.9, rely=0.1, anchor="center")
                 
                 if not silent:
-                    # Try to fetch the "What's New" text from GitHub
                     whats_new_text = ""
                     try:
                         wn_response = requests.get(WHATSNEW_URL, timeout=3)
                         if wn_response.status_code == 200:
                             whats_new_text = f"\n\nWhat's New:\n{wn_response.text.strip()}\n"
-                    except:
-                        pass # If there is no whatsnew.txt, just skip it!
+                    except: pass 
 
                     msg = f"Good news! Version {latest_version} is fresh out of the oven.\n\nYou are currently on v{CURRENT_VERSION}.{whats_new_text}\nWould you like to grab the new batch?"
                     if messagebox.askyesno("Update Available! 📡", msg):
                         webbrowser.open(download_link)
             else:
-                if not silent:
-                    messagebox.showinfo("Up to Date 🌟", f"You are running the latest version (v{CURRENT_VERSION}). The kitchen is fully stocked!")
+                if not silent: messagebox.showinfo("Up to Date 🌟", f"You are running the latest version (v{CURRENT_VERSION}). The kitchen is fully stocked!")
         
     except Exception:
-        if not silent:
-            messagebox.showerror("Connection Error 🔌", "Couldn't reach the server to check for updates.")
+        if not silent: messagebox.showerror("Connection Error 🔌", "Couldn't reach the server to check for updates.")
 
 def show_disclaimer():
     msg = ("The 'Don't Sue Me' Disclaimer\n\nThis app is a fun educational tool. If you use it to pirate movies, that's on you, buddy.\n\n- sizon95")
@@ -105,6 +95,32 @@ def cancel_download(cancel_flag, status_label):
 def open_save_folder(path):
     try: os.startfile(path)
     except: pass
+
+# --- SMART UI LOGIC ---
+def update_ui_state(*args):
+    # 1. Playlist locks out Slicing
+    if playlist_var.get():
+        start_entry.configure(state="disabled", fg_color=("gray80", "gray20"))
+        end_entry.configure(state="disabled", fg_color=("gray80", "gray20"))
+        start_var.set("")
+        end_var.set("")
+    else:
+        start_entry.configure(state="normal", fg_color=C_BG_BASE)
+        end_entry.configure(state="normal", fg_color=C_BG_BASE)
+
+    # 2. Slicing locks out Subtitles
+    if start_var.get().strip() or end_var.get().strip():
+        subs_cb.configure(state="disabled", text_color=C_TEXT_MUTED)
+        sub_lang_dropdown.configure(state="disabled", fg_color=("gray80", "gray20"))
+        subs_var.set(False) 
+    else:
+        subs_cb.configure(state="normal", text_color=C_TEXT_MAIN)
+        
+        # 3. Only enable Language Dropdown if Subs are checked
+        if subs_var.get():
+            sub_lang_dropdown.configure(state="normal", fg_color=C_BG_BASE)
+        else:
+            sub_lang_dropdown.configure(state="disabled", fg_color=("gray80", "gray20"))
 
 # --- Playlist Selection Popup UI ---
 def show_playlist_popup(info, entries, url, quality, target_folder, row_frame, thumb_label, title_label, status_label, progress_bar, action_frame, cancel_btn, extra_opts):
@@ -154,7 +170,7 @@ def show_playlist_popup(info, entries, url, quality, target_folder, row_frame, t
     ctk.CTkButton(popup, text="Confirm & Munch! 🦖", font=F_SUBHEADING, command=confirm_selection, fg_color=C_ACCENT, hover_color=C_ACCENT_HOVER, height=40).pack(pady=20, padx=20, fill="x")
 
 def fetch_playlist_metadata(url, quality, target_folder, row_frame, thumb_label, title_label, status_label, progress_bar, action_frame, cancel_btn, extra_opts):
-    ydl_opts = {'extract_flat': 'in_playlist', 'quiet': True, 'ignoreerrors': True, 'ffmpeg_location': resource_path(".")}
+    ydl_opts = {'extract_flat': 'in_playlist', 'quiet': True, 'ignoreerrors': True, 'ffmpeg_location': resource_path("ffmpeg.exe")}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -173,15 +189,18 @@ def munch_it(event=None):
     if not url: return
     selected_quality = quality_dropdown.get()
     
-    # Grab all our extra features
     extra_opts = {
-        'subs': subs_var.get(), 
+        'subs': subs_var.get(),
+        'sub_lang': sub_lang_var.get(), 
         'art': art_var.get(), 
         'start': start_var.get().strip(), 
         'end': end_var.get().strip()
     }
     
+    # Ghost Slices Prevented!
     url_entry.delete(0, ctk.END)
+    start_var.set("")
+    end_var.set("")
     
     row_frame = ctk.CTkFrame(queue_frame, corner_radius=15, fg_color=C_CARD_BG, border_width=1, border_color=C_ACCENT)
     row_frame.pack(fill="x", pady=8, padx=5)
@@ -224,42 +243,60 @@ def process_item(url, quality, target_folder, is_playlist, thumb_label, title_la
         elif d['status'] == 'finished':
             status_label.configure(text="Status: Mixing batter (Finalizing)... 🥣", text_color=C_WARNING)
 
-    # Note: 'nopart' is removed so FFmpeg doesn't crash during slicing
+    # Note: 'quiet' is set to True to prevent windowed .exe crashes!
     ydl_opts = {
-        'noplaylist': not is_playlist, 'quiet': True, 'ignoreerrors': True, 'progress_hooks': [progress_hook],
-        'ffmpeg_location': resource_path("."), 'postprocessors': []
+        'noplaylist': not is_playlist, 
+        'quiet': True, 
+        'ignoreerrors': False, 
+        'progress_hooks': [progress_hook],
+        'ffmpeg_location': resource_path("ffmpeg.exe"), 
+        'postprocessors': []
     }
     
     if is_playlist and playlist_items_str: ydl_opts['playlist_items'] = playlist_items_str
     
     ydl_opts['outtmpl'] = os.path.join(target_folder, '%(title)s.%(ext)s')
 
-    # PRO TOOL: Embed Art
     if extra_opts.get('art'):
         ydl_opts['writethumbnail'] = True
-        ydl_opts['postprocessors'].append({'key': 'EmbedThumbnail'})
-        # FFmpegMetadata is required for the EmbedThumbnail postprocessor to function correctly
-        ydl_opts['postprocessors'].append({'key': 'FFmpegMetadata'})
+        ydl_opts['postprocessors'].extend([{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}])
 
-    # PRO TOOL: Subtitles
     if extra_opts.get('subs') and quality != "Just the Tunes (MP3)":
-        ydl_opts['writesubtitles'] = True; ydl_opts['writeautomaticsub'] = True; ydl_opts['subtitleslangs'] = ['en']
-        ydl_opts['postprocessors'].append({'key': 'FFmpegEmbedSubtitle'})
+        lang_map = {
+            "English": "en", 
+            "Spanish": "es", 
+            "Greek": "el", 
+            "French": "fr", 
+            "German": "de", 
+            "Italian": "it", 
+            "Japanese": "ja", 
+            "All": "all"
+        }
+        chosen_lang = lang_map.get(extra_opts.get('sub_lang', "English"), "en")
+        
+        ydl_opts['writesubtitles'] = True
+        ydl_opts['writeautomaticsub'] = True
+        ydl_opts['subtitleslangs'] = [chosen_lang]
+        ydl_opts['postprocessors'].extend([{'key': 'FFmpegSubtitlesConvertor', 'format': 'srt'}, {'key': 'FFmpegEmbedSubtitle'}])
 
-    # PRO TOOL: Time-Slice
+    # Slicing Math & Conversion
+    s_sec = 0
+    e_sec = float('inf')
     if extra_opts.get('start') or extra_opts.get('end'):
-        from yt_dlp.utils import download_range_func
         def t_to_s(s):
+            if not s: return None
             try:
                 p = list(map(int, s.split(':')))
                 if len(p) == 2: return p[0]*60 + p[1]
                 if len(p) == 3: return p[0]*3600 + p[1]*60 + p[2]
                 return int(s)
             except: return None
+            
         s_sec = t_to_s(extra_opts.get('start')) or 0
-        e_sec = t_to_s(extra_opts.get('end')) or 999999
-        if s_sec > 0 or e_sec < 999999:
-            ydl_opts['download_ranges'] = download_range_func(None, [(s_sec, e_sec)])
+        e_sec = t_to_s(extra_opts.get('end')) or float('inf') 
+        
+        if s_sec > 0 or e_sec != float('inf'):
+            ydl_opts['download_ranges'] = lambda info, ydl: [{'start_time': s_sec, 'end_time': e_sec}]
             ydl_opts['force_keyframes_at_cuts'] = True
 
     if quality == "Just the Tunes (MP3)":
@@ -275,6 +312,13 @@ def process_item(url, quality, target_folder, is_playlist, thumb_label, title_la
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
+            
+            # THE POLITE BUTLER: Check if the user sliced outside the video's actual length!
+            duration = info.get('duration')
+            if duration and s_sec >= duration:
+                app.after(0, lambda: messagebox.showwarning("Slice Out of Bounds 🛑", f"You asked to start slicing at {s_sec} seconds, but this video is only {duration} seconds long!"))
+                raise Exception("OUT_OF_BOUNDS")
+
             title_label.configure(text=info.get('title', 'Unknown Title'))
             if info.get('thumbnail'):
                 img = Image.open(BytesIO(requests.get(info['thumbnail']).content))
@@ -283,8 +327,16 @@ def process_item(url, quality, target_folder, is_playlist, thumb_label, title_la
             status_label.configure(text="Status: Ding! Served hot. 🍕", text_color=C_SUCCESS)
             progress_bar.set(1.0); cancel_btn.destroy()
             ctk.CTkButton(action_frame, text="📁", fg_color=C_SUCCESS, width=120, command=lambda: open_save_folder(target_folder)).pack(side="right")
+    
     except Exception as e:
-        status_label.configure(text="Status: Munch failed. 🤢", text_color=C_DANGER)
+        if cancel_flag['is_cancelled'] or str(e) == "USER_CANCELLED":
+            status_label.configure(text="Status: Thrown in the trash. 🗑️", text_color=C_TEXT_MUTED)
+        elif str(e) == "OUT_OF_BOUNDS":
+            status_label.configure(text="Status: Slice time was too long! 🛑", text_color=C_DANGER)
+        else:
+            status_label.configure(text="Status: Munch failed. 🤢", text_color=C_DANGER)
+            print(f"\n--- KITCHEN CRASH REPORT ---\n{e}\n----------------------------\n")
+        
         if cancel_btn.winfo_exists(): cancel_btn.destroy()
 
 # --- UI Setup ---
@@ -296,6 +348,14 @@ if os.path.exists(icon_path):
 
 video_path_var = ctk.StringVar(value=os.path.join(os.path.expanduser('~'), 'Downloads'))
 audio_path_var = ctk.StringVar(value=os.path.join(os.path.expanduser('~'), 'Downloads'))
+
+# Define interactive variables first
+playlist_var = ctk.BooleanVar()
+subs_var = ctk.BooleanVar()
+art_var = ctk.BooleanVar()
+sub_lang_var = ctk.StringVar(value="English")
+start_var = ctk.StringVar()
+end_var = ctk.StringVar()
 
 # --- Header ---
 top = ctk.CTkFrame(app, fg_color="transparent"); top.pack(fill="x", padx=30, pady=(30, 10))
@@ -315,13 +375,37 @@ ctk.CTkButton(ir, text="Munch It! 🦖", command=munch_it, width=110, height=35,
 
 # --- Pro Options ---
 opr = ctk.CTkFrame(card, fg_color="transparent"); opr.pack(pady=(0, 15), padx=20)
-playlist_var = ctk.BooleanVar(); ctk.CTkCheckBox(opr, text="Playlist 📜", variable=playlist_var, fg_color=C_ACCENT).pack(side="left", padx=10)
-subs_var = ctk.BooleanVar(); ctk.CTkCheckBox(opr, text="Subs 🔤", variable=subs_var, fg_color=C_ACCENT).pack(side="left", padx=10)
-art_var = ctk.BooleanVar(); ctk.CTkCheckBox(opr, text="Embed Art 🎨", variable=art_var, fg_color=C_ACCENT).pack(side="left", padx=10)
+
+playlist_cb = ctk.CTkCheckBox(opr, text="Playlist 📜", variable=playlist_var, fg_color=C_ACCENT)
+playlist_cb.pack(side="left", padx=10)
+
+subs_cb = ctk.CTkCheckBox(opr, text="Subs 🔤", variable=subs_var, fg_color=C_ACCENT)
+subs_cb.pack(side="left", padx=(10, 5))
+
+# Replace your current sub_lang_dropdown with this:
+sub_lang_dropdown = ctk.CTkOptionMenu(opr, 
+    values=["English", "Spanish", "Greek", "French", "German", "Italian", "Japanese", "All"], 
+    variable=sub_lang_var, width=80, height=24, font=F_SMALL, 
+    fg_color=C_BG_BASE, button_color=C_ACCENT, state="disabled")
+sub_lang_dropdown.pack(side="left", padx=(0, 10))
+
+ctk.CTkCheckBox(opr, text="Embed Art 🎨", variable=art_var, fg_color=C_ACCENT).pack(side="left", padx=10)
+
 ctk.CTkLabel(opr, text="Slice:", font=F_SMALL, text_color=C_TEXT_MUTED).pack(side="left", padx=(10, 5))
-start_var = ctk.StringVar(); ctk.CTkEntry(opr, textvariable=start_var, width=70, placeholder_text="00:00", fg_color=C_BG_BASE).pack(side="left", padx=2)
+
+start_entry = ctk.CTkEntry(opr, textvariable=start_var, width=70, placeholder_text="00:00", fg_color=C_BG_BASE)
+start_entry.pack(side="left", padx=2)
+
 ctk.CTkLabel(opr, text="to", font=F_SMALL, text_color=C_TEXT_MUTED).pack(side="left", padx=2)
-end_var = ctk.StringVar(); ctk.CTkEntry(opr, textvariable=end_var, width=70, placeholder_text="02:30", fg_color=C_BG_BASE).pack(side="left", padx=2)
+
+end_entry = ctk.CTkEntry(opr, textvariable=end_var, width=70, placeholder_text="02:30", fg_color=C_BG_BASE)
+end_entry.pack(side="left", padx=2)
+
+# Bind the UI logic AFTER all widgets are created
+playlist_cb.configure(command=update_ui_state)
+subs_cb.configure(command=update_ui_state)
+start_var.trace_add("write", update_ui_state)
+end_var.trace_add("write", update_ui_state)
 
 # --- Pantry ---
 kit = ctk.CTkFrame(app, fg_color="transparent"); kit.pack(fill="x", padx=30, pady=5)
@@ -341,4 +425,39 @@ update_btn = ctk.CTkButton(uc, text="Updates 📡", command=lambda: check_update
 update_dot = ctk.CTkLabel(update_btn, text="", fg_color=C_DANGER, width=10, height=10, corner_radius=5)
 sig = ctk.CTkLabel(foot, text="Cooked up by sizon95", text_color=C_ACCENT, font=("Segoe UI", 12, "bold", "underline"), cursor="hand2"); sig.pack(side="right"); sig.bind("<Button-1>", open_portfolio)
 
-app.after(2000, lambda: check_updates(True)); app.mainloop()
+# --- THE SPLASH SCREEN (INTRO) ---
+def play_intro_splash():
+    app.withdraw() # Hide the main window
+    splash = ctk.CTkToplevel(app)
+    splash.overrideredirect(True) 
+    splash.configure(fg_color=C_BG_BASE)
+
+    # Center Splash Screen
+    splash_width = 500
+    splash_height = 300
+    x = int((splash.winfo_screenwidth() / 2) - (splash_width / 2))
+    y = int((splash.winfo_screenheight() / 2) - (splash_height / 2))
+    splash.geometry(f"{splash_width}x{splash_height}+{x}+{y}")
+
+    brand_lbl = ctk.CTkLabel(splash, text="OMICRON", font=("Segoe UI", 46, "bold"), text_color=C_ACCENT)
+    brand_lbl.pack(expand=True, pady=(60, 0))
+    dev_lbl = ctk.CTkLabel(splash, text="Cooked up by sizon95", font=("Segoe UI", 14, "italic"), text_color=C_TEXT_MUTED)
+    dev_lbl.pack(pady=(0, 30))
+
+    load_bar = ctk.CTkProgressBar(splash, width=300, height=8, progress_color=C_ACCENT, fg_color=("gray80", "gray20"))
+    load_bar.pack(pady=(0, 50))
+    load_bar.set(0)
+
+    def animate_loading(step=0):
+        if step <= 100:
+            load_bar.set(step / 100)
+            splash.after(20, lambda: animate_loading(step + 1))
+        else:
+            splash.destroy()
+            app.deiconify() # Reveal the main app!
+            app.after(1000, lambda: check_updates(silent=True)) # Silent update check
+
+    animate_loading()
+
+play_intro_splash()
+app.mainloop()
