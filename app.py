@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import tkinter as tk  
+import re
 import yt_dlp
 import threading
 import os
@@ -51,27 +52,35 @@ def open_patreon():
     webbrowser.open("https://www.patreon.com/posts/cup-of-coffee-154185123?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link")
 
 def check_updates():
-    CURRENT_VERSION = "1.5.0"
-    UPDATE_URL = "https://georgerossis.pages.dev/omicron_version.txt" 
+    # Make sure this matches the 4-digit format from your text file
+    CURRENT_VERSION = "1.5.0.0"
+    
+    # Point directly to your existing version file on GitHub!
+    UPDATE_URL = "https://raw.githubusercontent.com/Geoross/omicron/main/version.txt" 
     
     try:
         response = requests.get(UPDATE_URL, timeout=5)
         response.raise_for_status() 
         
-        data = response.text.strip().split('\n')
-        latest_version = data[0].strip()
-        download_link = data[1].strip() if len(data) > 1 else "https://georgerossis.pages.dev"
+        # We use a Regular Expression to hunt down this exact string: u'FileVersion', u'1.5.0.0'
+        match = re.search(r"u'FileVersion',\s*u'([\d\.]+)'", response.text)
         
-        if latest_version > CURRENT_VERSION:
-            msg = f"Good news! Version {latest_version} is fresh out of the oven.\n\nYou are currently on v{CURRENT_VERSION}.\n\nWould you like to grab the new batch?"
-            if messagebox.askyesno("Update Available! 📡", msg):
-                webbrowser.open(download_link)
-        else:
-            messagebox.showinfo("Up to Date 🌟", f"You are running the latest version (v{CURRENT_VERSION}). The kitchen is fully stocked!")
+        if match:
+            latest_version = match.group(1) # This plucks out exactly "1.5.0.0"
+            download_link = "https://georgerossis.pages.dev" # Hardcode your portfolio here
             
-    except Exception:
+            if latest_version > CURRENT_VERSION:
+                msg = f"Good news! Version {latest_version} is fresh out of the oven.\n\nYou are currently on v{CURRENT_VERSION}.\n\nWould you like to grab the new batch?"
+                if messagebox.askyesno("Update Available! 📡", msg):
+                    webbrowser.open(download_link)
+            else:
+                messagebox.showinfo("Up to Date 🌟", f"You are running the latest version (v{CURRENT_VERSION}). The kitchen is fully stocked!")
+        else:
+            print("Couldn't parse the version file format.")
+            
+    except Exception as e:
         messagebox.showerror("Connection Error 🔌", "Couldn't reach the server to check for updates. Make sure you are connected to the internet!")
-
+        
 def show_disclaimer():
     msg = (
         "The 'Don't Sue Me' Disclaimer\n\n"

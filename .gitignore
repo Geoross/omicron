@@ -4,6 +4,6 @@
 # 2. EXCEPT these specific files! (The Force Field bypass)
 !.gitignore
 !app.py
-!readme.txt
+!README.md
 !version.txt
 !omicron.ico
