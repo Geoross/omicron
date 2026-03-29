@@ -1,0 +1,3 @@
+-Slice a file to a desired point
+-Merge the youtube thumbnail on the file
+-Download the available subtitles
