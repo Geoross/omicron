@@ -1,0 +1,9 @@
+# 1. Ignore absolutely EVERYTHING in this folder
+*
+
+# 2. EXCEPT these specific files! (The Force Field bypass)
+!.gitignore
+!app.py
+!readme.txt
+!version.txt
+!omicron.ico
